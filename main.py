@@ -12,6 +12,8 @@ from tqdm import tqdm, trange
 from config import BASE_URL, PRODUCTS_ENDPOINT, URL_BOOK_TYPES_ENDPOINT, URL_BOOK_ENDPOINT
 from user import User
 import time
+import json
+from easydict import EasyDict as edict
 
 # for current func name, specify 0 or no argument.
 # for name of caller of current func, specify 1.
@@ -24,7 +26,7 @@ def display_http_error(myFunc, myErr, myStatus_Code):
     print(myFunc)
     print(myErr)
     print(myStatus_Code)
-
+    
 def book_request(user, offset, limit, verbose=False):
     data = []
     url = BASE_URL + PRODUCTS_ENDPOINT.format(offset=offset, limit=limit)
@@ -49,8 +51,8 @@ def get_owned_books(user, offset=0, limit=25, is_verbose=False, is_quiet=False):
     
     url, r, data = book_request(user, offset, limit, is_verbose)
     
-    print(f'You have {str(r.json()["count"])} books')
     print("Getting list of books...")
+    print(f'You have {str(r.json()["count"])} books')
     
     if not is_quiet:
         pages_list = trange(r.json()['count'] // limit, unit='Pages')
@@ -81,7 +83,7 @@ def get_book_file_types(user, book_id):
         # just return an empty dictionary of file types
         return []
     else:
-        display_http_error(currentFuncName(), r.json(), r.status_code)
+        display_http_error(currentFuncName() + ' --- ' + book_id, r.json(), r.status_code)
         return []
 
 def get_book_url(user, book_id, format='pdf'):
@@ -98,7 +100,7 @@ def get_book_url(user, book_id, format='pdf'):
         user.refresh_header() # refresh token 
         get_url_book(user, book_id, format)  # call recursive 
     else:
-        display_http_error(currentFuncName(), r.json(), r.status_code)
+        display_http_error(currentFuncName() + ' --- ' + book_id, r.json(), r.status_code)
         return ''
     
 def download_book(filename, url):
@@ -124,7 +126,8 @@ def download_book(filename, url):
 def make_zip(filename):
     if filename[-4:] == 'code':
         os.replace(filename, filename[:-4] + 'zip')
-
+    elif filename[-5:] == 'video':
+        os.replace(filename, filename[:-5] + 'zip')
 
 def move_current_files(root, book):
     sub_dir = f'{root}/{book}'
@@ -151,14 +154,16 @@ def main(argv):
     email = None
     password = None
     root_directory = 'media' 
-    book_file_types = ['pdf', 'mobi', 'epub', 'code']
+    book_file_types = ['pdf', 'mobi', 'epub', 'code', 'video']
     separate = None
     verbose = None
     quiet = None
-    errorMessage = 'Usage: main.py -e <email> -p <password> [-d <directory> -b <book file types> -s -v -q]'
+    errorMessage = 'Usage: main.py -e <email> -p <password> [-d <directory> -b <book file types>|all -s -v -q]'
     junk_to_bybass = 'Skill Up'
     ts1 = 0
     ts2 = 0
+    myScriptPath = os.path.dirname(sys.argv[0])
+    book_list_filename = os.path.abspath(myScriptPath) + '\\book_list.txt'
 
     # get the command line arguments/options
     try:
@@ -178,7 +183,10 @@ def main(argv):
             root_directory = os.path.expanduser(
                 arg) if '~' in arg else os.path.abspath(arg)
         elif opt in ('-b', '--books'):
-            book_file_types = arg.split(',')
+            if arg == 'all':
+                book_file_types = ['pdf', 'mobi', 'epub', 'code', 'video']
+            else:
+                book_file_types = arg.split(',')
         elif opt in ('-s', '--separate'):
             separate = True
         elif opt in ('-v', '--verbose'):
@@ -210,41 +218,50 @@ def main(argv):
 
     # get all your books
     books = get_owned_books(user, is_verbose=verbose, is_quiet=quiet)
+    outfile = open(book_list_filename,'w') # save off a copy of the book list for troubleshooting where the script is running from
+    for book in books:
+        outfile.write(str(book))
+    outfile.close()
     print('Downloading books...')
     if not quiet:
         books_iter = tqdm(books, unit='Book')
     else:
         books_iter = books
+    '''
+        build a json file with all of the books owned
+        just a different way of doing this
+    '''
+    ts1 = time.time()
     for book in books_iter:
-        ts2 = time.time() # in seconds
-        etime = (ts2 - ts1) / 60 # get current elapsed time in minutes
-        # don't want to wait until the last minute
-        # so when the elapsed time has reached ~14 minutes
-        # refresh the access key
-        if etime >= 14:
-            # refresh the access key
-            print("Refreshing access key")
-            user = User(email, password)
-            ts1 = time.time()
-        # get the different file type of current book
-        file_types = get_book_file_types(user, book['productId'])
-        if not junk_to_bybass in book['productName']:
+        book_name = book['productName'].replace('  ',' ').replace(':', '-').replace('/','-').strip()
+        myPath = f'{root_directory}/{book_name}'
+        if not os.path.isdir(myPath):
+            ts2 = time.time()
+            if ((ts2 - ts1)/60) > 14:
+                user = User(email, password) # just to make sure the access key has not timed out, get a new one
+            file_types = get_book_file_types(user, book['productId']) # get the different file type of current book
             for file_type in file_types:
-                if file_type in book_file_types:  # check if the file type entered is available by the current book
-                    book_name = book['productName'].replace('  ',' ').replace(':', '-').replace('/','-').strip()
-                    # get url of the book to download
-                    url = get_book_url(user, book['productId'], file_type)
-                    if separate:
-                        filename = f'{root_directory}/{book_name}/{book_name}.{file_type}'
-                        move_current_files(root_directory, book_name)
-                    else:
-                        filename = f'{root_directory}/{book_name}.{file_type}'
-                    if not os.path.exists(filename) and not os.path.exists(filename.replace('.code', '.zip')):
-                        download_book(filename, url)
-                        make_zip(filename)
-                    else:
-                        if verbose:
-                            tqdm.write(f'{filename} already exists, skipping.')
+                if file_type in book_file_types: #check to see if the file type(s) entered are available for the current book
+                    url = get_book_url(user, book['productId'], file_type) # get url of the book to download
+                if separate: # are we putting the books into separate folders or all in one folder
+                    filename = f'{root_directory}/{book_name}/{book_name}.{file_type}'
+                    move_current_files(root_directory, book_name)
+                else:
+                    filename = f'{root_directory}/{book_name}.{file_type}'
+                '''
+                    some videos could have code along with the video
+                    check to see if the current filename has 'code' as a file type
+                    and replace the workd Video in the book name to Code to show
+                    the difference between the two files since both are really .zip files
+                '''
+                if file_type == 'code' and 'Video]' in filename:
+                    filename = filename.replace('Video].', 'Code].')
+                if not os.path.exists(filename) and not os.path.exists(filename.replace('.code', '.zip')) and not os.path.exists(filename.replace('.video', '.zip')):
+                    download_book(filename, url)
+                    make_zip(filename)
+                else:
+                    if verbose:
+                        tqdm.write(f'{filename} already exists, skipping.')
 
 if __name__ == '__main__':
     main(sys.argv[1:])

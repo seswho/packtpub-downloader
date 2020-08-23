@@ -13,6 +13,7 @@ BASE_URL = "https://services.packtpub.com/"
 AUTH_ENDPOINT = "auth-v1/users/tokens"
 
 # URL to get all your books, two params that i change are offset and limit, method GET
+# Could use productName or releaseDate to sort on as well, ASC - Ascending, DESC - Descending order
 PRODUCTS_ENDPOINT = "entitlements-v1/users/me/products?sort=createdAt:DESC&offset={offset}&limit={limit}"
 
 # URL to get types , param is  book id, method GET

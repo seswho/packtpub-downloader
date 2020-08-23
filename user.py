@@ -12,8 +12,6 @@ class User:
     """
     username = ""
     password = ""
-    ts1 = 0
-    ts2 = 0
     # need to fill Authoritazion with current token provide by api
     header = {
         "User-Agent": "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 " +
@@ -42,8 +40,6 @@ class User:
         # except should happend when user and pass are incorrect 
         print("Error login,  check user and password")
         print("Error {}".format(e))
-        self.ts2 = time.time()
-        print("JWT lasted {} minutes".format((self.ts2 - self.ts1)/60))
         sys.exit(2)
 
     def get_header(self):
@@ -54,8 +50,6 @@ class User:
             Refresh jwt because it expired and returned
         """
         print("Attempting re-login as: {}".format(self.username))
-        self.ts2 = time.time()
-        print("JWT lasted {} minutes".format((self.ts2 - self.ts1)/60))
         self.header["Authorization"] = self.get_token()
 
         return self.header

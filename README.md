@@ -15,7 +15,7 @@ Since PacktPub restructured their website [packtpub-library-downloader](https://
 - *-e*, *--email* = Your login email
 - *-p*, *--password* = Your login password
 - *-d*, *--directory* = Directory to download into. Default is "media/" in the current directory
-- *-b*, *--books* = Assets to download. Options are: *pdf,mobi,epub,code*
+- *-b*, *--books* = Assets to download. Options are: *pdf,mobi,epub,code,video, or all*
 - *-s*, *--separate* = Create a separate directory for each book
 - *-v*, *--verbose* = Show more detailed information
 - *-q*, *--quiet* = Don't show information or progress bars
@@ -26,8 +26,22 @@ Since PacktPub restructured their website [packtpub-library-downloader](https://
 - *mobi*: MOBI format
 - *epub*: EPUB format
 - *code*: Accompanying source code, saved as .zip files
+- *video*: .zip file containing the video files and supporting method of viewing them
+- *all*: denotes all of the book file types above
 
 I'm working on Python 3.8.4
+
+## Change Log
+2020-08-23
+- main.py
+-- Streamline some of the code
+-- Check to see if the book has already been downloaded and skip it if it has
+-- Added the option - b all to denote all book types (code,epub,mobi,pdf, and video)
+-- The script will now download any videos owned
+- config.py
+-- Added information regarding other ways to sort the list of books from the PRODUCTS_ENDPOINT URL
+- user.py
+-- Removed the session timeing from the user object, now handled in main.py
 
 2020-08-29 - Made the following changes:
 - main.py
