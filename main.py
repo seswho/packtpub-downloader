@@ -12,8 +12,6 @@ from tqdm import tqdm, trange
 from config import BASE_URL, PRODUCTS_ENDPOINT, URL_BOOK_TYPES_ENDPOINT, URL_BOOK_ENDPOINT
 from user import User
 import time
-import json
-from easydict import EasyDict as edict
 
 # for current func name, specify 0 or no argument.
 # for name of caller of current func, specify 1.
