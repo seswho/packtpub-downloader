@@ -32,24 +32,30 @@ Since PacktPub restructured their website [packtpub-library-downloader](https://
 I'm working on Python 3.8.4
 
 ## Change Log
-2020-08-23
-main.py
+
+### 2020-08-23
+
+*main.py*
 - Streamline some of the code
 - Check to see if the book has already been downloaded and skip it if it has
 - Added the option - b all to denote all book types (code,epub,mobi,pdf, and video)
 - The script will now download any videos owned
-config.py
+
+*config.py*
 - Added information regarding other ways to sort the list of books from the PRODUCTS_ENDPOINT URL
-user.py
+
+*user.py*
 - Removed the session timeing from the user object, now handled in main.py
 
-2020-08-29 - Made the following changes:
-main.py
+### 2020-08-29
+
+*main.py*
 - Through some testing, found the Packt Publishing REST API key has a ~15 minute life span. Added a mechanizm to keep track of how long the access key is valid and when it reaches ~14 minutes, refresh the access key.
 - Cleaned up the http error reporting by making it a function in main.python
 - Rearanged the main function and did some validation of the data prior to creating the folder and downloading the book(s)
 - Removed the replacments of spaces for "_" and changed the replacement of : and / to be "-" for easier readability of the foldername and filenames
 - Added logic to check for http status code of 404 when attempting to get the book formats as videos may or may not have a code file and return an empty list of book formats
-user.py
+
+*user.py*
 - Add the ability to check the length of time the access key has been alive - Opted to move this logic to main.py, but left it in the user object
 
