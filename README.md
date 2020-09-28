@@ -36,7 +36,7 @@ I'm working on Python 3.8.4
 - ignore any file with the .old extension
 
 *main.py*
-- Your list of owned books may have duplicates showing more book owned than there should be. Added logic to remove the duplicate books based on productId
+- Your list of owned books may have duplicates showing more books owned than there should be. Added logic to remove the duplicate books based on productId
 - Cleaned up some of the book nameing conventions used by Packt Publishing makeing them a bit more standardized when written to your local machine
 - Fixed a small problem with the JWT timestamp checking
 
