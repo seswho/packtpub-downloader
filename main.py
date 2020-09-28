@@ -32,6 +32,7 @@ def book_request(user, offset, limit, verbose=False):
         print(url)
     r = requests.get(url, headers=user.get_header())
     data += r.json().get('data', [])
+    #print("in book_request data: {}\n\n".format(data))
 
     return url, r, data
 
@@ -50,7 +51,7 @@ def get_owned_books(user, offset=0, limit=25, is_verbose=False, is_quiet=False):
     url, r, data = book_request(user, offset, limit, is_verbose)
     
     print("Getting list of books...")
-    print(f'You have {str(r.json()["count"])} books')
+    print(f'You have ~{str(r.json()["count"])} books, which may include duplicates')
     
     if not is_quiet:
         pages_list = trange(r.json()['count'] // limit, unit='Pages')
@@ -96,7 +97,7 @@ def get_book_url(user, book_id, format='pdf'):
     elif r.status_code == 401: # jwt expired 
         print("get_url_book")
         user.refresh_header() # refresh token 
-        get_url_book(user, book_id, format)  # call recursive 
+        get_book_url(user, book_id, format)  # call recursive 
     else:
         display_http_error(currentFuncName() + ' --- ' + book_id, r.json(), r.status_code)
         return ''
@@ -111,7 +112,7 @@ def download_book(filename, url):
         r = requests.get(url, stream=True)
         total = r.headers.get('content-length')
         if total is None:
-            f.write(response.content)
+            f.write(r.content)
         else:
             total = int(total)
             # TODO: read more about tqdm
@@ -157,11 +158,8 @@ def main(argv):
     verbose = None
     quiet = None
     errorMessage = 'Usage: main.py -e <email> -p <password> [-d <directory> -b <book file types>|all -s -v -q]'
-    junk_to_bybass = 'Skill Up'
     ts1 = 0
     ts2 = 0
-    myScriptPath = os.path.dirname(sys.argv[0])
-    book_list_filename = os.path.abspath(myScriptPath) + '\\book_list.txt'
 
     # get the command line arguments/options
     try:
@@ -207,45 +205,50 @@ def main(argv):
     # create user with his properly header
     user = User(email, password)
     
-    # once we login to the API and get the access key
-    # and after testing, there is a 15 minute life to the access key
+    # once we login to the API and get the out jwt
+    # testing has shown there is a ~15 minute life of the jwt
     # set a variable with the starting time stamp to check at a later
-    # point to see if we've reached the 15 minute point and then refresh
-    # the access key
+    # point to see if we're close to the 15 minute point and refresh
+    # the jwt
     ts1 = time.time() # in seconds
 
     # get all your books
     books = get_owned_books(user, is_verbose=verbose, is_quiet=quiet)
-    outfile = open(book_list_filename,'w') # save off a copy of the book list for troubleshooting where the script is running from
+
+    # remove any duplicate book records
+    new_books = []
+    seen = set()
     for book in books:
-        outfile.write(str(book))
-    outfile.close()
-    print('Downloading books...')
+        prodid = book['productId']
+        if prodid not in seen:
+            seen.add(prodid)
+            new_books.append(book)
+    del seen
+    print("Number of books owned after removing duplicates: {}".format(len(new_books)))
+
     if not quiet:
-        books_iter = tqdm(books, unit='Book')
+        books_iter = tqdm(new_books, unit='Book')
     else:
-        books_iter = books
-    '''
-        build a json file with all of the books owned
-        just a different way of doing this
-    '''
+        books_iter = new_books
     ts1 = time.time()
     for book in books_iter:
-        book_name = book['productName'].replace('  ',' ').replace(':', '-').replace('/','-').strip()
-        myPath = f'{root_directory}/{book_name}'
-        if not os.path.isdir(myPath):
-            ts2 = time.time()
-            if ((ts2 - ts1)/60) > 14:
-                user = User(email, password) # just to make sure the access key has not timed out, get a new one
-            file_types = get_book_file_types(user, book['productId']) # get the different file type of current book
-            for file_type in file_types:
-                if file_type in book_file_types: #check to see if the file type(s) entered are available for the current book
-                    url = get_book_url(user, book['productId'], file_type) # get url of the book to download
+        ts2 = time.time()
+        if ((ts2 - ts1)/60) > 14:
+            user = User(email, password) # just to make sure the jwt has not timed out, get a new one
+            ts1 = ts2
+        file_types = get_book_file_types(user, book['productId']) # get the different file type of current book
+        for file_type in file_types:
+            if file_type in book_file_types: #check to see if the file type(s) entered are available for the current book
+                book_name = book['productName'].replace('  ',' ').replace(':', '-').replace('/','-').replace('Edition)','Edition')
+                book_name = book_name.replace(', Second',' - Second').replace('-Second','- Second').replace('(Second',' - Second').replace('Hands - On','Hands-On')
+                book_name = book_name.replace('7-','7 -').replace('  -',' -').strip()
                 if separate: # are we putting the books into separate folders or all in one folder
                     filename = f'{root_directory}/{book_name}/{book_name}.{file_type}'
                     move_current_files(root_directory, book_name)
                 else:
                     filename = f'{root_directory}/{book_name}.{file_type}'
+                # get url of the book to download
+                url = get_book_url(user, book['productId'], file_type) # get url of the book to download
                 '''
                     some videos could have code along with the video
                     check to see if the current filename has 'code' as a file type
